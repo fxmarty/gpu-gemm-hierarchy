@@ -89,13 +89,18 @@ output = torch.zeros((M, N))
 for mb in range(0, M, Mtile):  # iterate over M dimension
     for nb in range(0, N, Ntile):  # iterate over N dimension
         for kb in range(0, K, Ktile):
+            # a block handle the GEMM of (Mtile, Ktile) of A and (Ktile, Ntile) of B
+            # to compute a tile (Mtile, Ntile) of the output
+            # load A and B tiles in shared memory here
 
-            # a thread block handle it from here
-            # load A and B tiles in shared memory here and
-            # compute GEMM over (warpm_m * warp_k) and (warp_k * warp_n)
             for kw in range(0, Ktile, warp_k):
                 for iw in range(0, Mtile, warp_m):
                     for jw in range(0, Ntile, warp_n):
+                        # split the output tile (Mtile, Ntile) into smaller ones (warpm_m, warp_n)
+                        # each dispatched on a warp
+                        # a warp compute the GEMM over (warpm_m * warp_k) and (warp_k * warp_n)
+                        # The smaller pieces (warpm_m * warp_k) and (warp_k * warp_n) are
+                        # held in registers, as well as the output tile
 
                         # classic GEMM (handled by threads)
                         for k in range(warp_k):
@@ -162,6 +167,8 @@ for mb in range(0, M, Mtile):  # iterate over M dimension
                         # split the output tile (Mtile, Ntile) into smaller ones (warpm_m, warp_n)
                         # each dispatched on a warp
                         # a warp compute the GEMM over (warpm_m * warp_k) and (warp_k * warp_n)
+                        # The smaller tiles (warpm_m * warp_k) and (warp_k * warp_n) are
+                        # held in registers, as well as the output tile
 
                         for kt in range(0, warp_k, thread_k):
                             for it in range(0, warp_m, thread_m):
